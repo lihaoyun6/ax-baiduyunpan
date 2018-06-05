@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         AX-百度云盘
 // @namespace    https://github.com/lihaoyun6/ax-baiduyunpan
-// @version      0.11.9
+// @version      0.12.5
 // @description  百度网盘文件直链提取, 支持一键发送至Axeldown进行下载
 // @author       lihaoyun6
 // @license      MIT
 // @supportURL   https://github.com/lihaoyun6/ax-baiduyunpan/issues
 // @date         01/01/2018
-// @modified     22/03/2018
+// @modified     05/06/2018
 // @match        *://pan.baidu.com/disk/home*
 // @match        *://yun.baidu.com/disk/home*
 // @match        *://pan.baidu.com/s/*
@@ -21,9 +21,9 @@
 // @grant        GM_addStyle
 // @grant        GM_info
 // @grant        GM_xmlhttpRequest
-// @grant        GM_openInTab
 // @require      https://cdn.bootcss.com/jquery/1.7.1/jquery.min.js
 // @require      https://cdn.bootcss.com/clipboard.js/1.5.16/clipboard.min.js
+// @icon         https://www.baidu.com/favicon.ico
 // ==/UserScript==
 
 (function(require, define, Promise) {
@@ -68,7 +68,7 @@
 				}
 			});
 		};
-	unsafeWindow.axeldown = function(urls, filename, thsize) {
+	unsafeWindow.axeldown = function(urls, filename, thsize, ua) {
 	    //alert(urls);
 		urls = urls.split('|');
 		filename = filename.split('|');
@@ -87,6 +87,7 @@
 					url: url,
 					output: output,
 					thsize: thsize,
+					ua:ua,
 					immediately: true
 				}
 			};
@@ -216,7 +217,7 @@
 				}
 				var axelthread = window.localStorage ? localStorage.getItem("axelthread") : Cookie.read("axelthread");
 				if (!axelthread) {
-					axelthread = "32";
+					axelthread = "64";
 				}
 				var text = '<label for="txt">Axeldown服务器地址: </label><input type="text" id="axeladdr" style="white-space: nowrap;" value="' + axeladdr + '" /><br><br><label for="txt">Axeldown服务器端口: </label><input type="text" id="axelport" style="white-space: nowrap;" value="' + axelport + '" /><br><br><label for="txt">Axeldown下载线程数: </label><input type="text" id="axelthread" style="white-space: nowrap;" value="' + axelthread + '" />';
 				var dialog = ctx.ui.confirm({
@@ -385,17 +386,28 @@
 				clipboard.on('error', function(e) {
 					ctx.ui.tip({ mode: 'caution', msg: '失败' });
 				});
+				var urlnow = location.href;
+				if(urlnow.indexOf('pan.baidu.com/disk/home') > 0 ){
+					alert('由于百度云文件解析策略调整\n请使用"分享"功能将需要下载的文件进行分享\n再前往分享链接界面导出下载');
+					return false;
+					} else if(urlnow.indexOf('yun.baidu.com/disk/home') > 0 ) {
+						alert('由于百度云文件解析策略调整\n请使用"分享"功能将需要下载的文件进行分享\n再前往分享链接界面导出下载');
+						return false;
+					} else if(urlnow.indexOf('eyun.baidu.com/enterprise') > 0 ) {
+						alert('由于百度云文件解析策略调整\n请使用"分享"功能将需要下载的文件进行分享\n再前往分享链接界面导出下载');
+						return false;
+					}
 				var axelthread = window.localStorage ? localStorage.getItem("axelthread") : Cookie.read("axelthread");
 				if (!axelthread) {
-					var axelthread = "32";
+					var axelthread = "64";
 					if (window.localStorage) {
 						localStorage.setItem("axelthread", axelthread);
 					} else {
 						Cookie.write("axelthread", axelthread);
 					}
 				}
-				var showurlss = dlinks.join('\n');
-				var showurls = showurlss.replace(/d.pcs.baidu.com/g, 'pcs.baidu.com');
+				var showurls = dlinks.join('\n');
+				//var showurls = showurlss.replace(/d.pcs.baidu.com/g, 'pcs.baidu.com');
 				var text = '<textarea id="bar" rows="' + ((dlinks.length > 20 ? 20 : dlinks.length) + 1) + '" style="width:100%;white-space: nowrap;">' + showurls + '</textarea><br><br><label for="txt">Axeldown下载线程数: </label><input type="text" id="axelthread" style="white-space: nowrap;" value="' + axelthread + '">';
 				var filenames;
 				var foldersList = selectedList.filter(function(e) {
@@ -430,8 +442,8 @@
 					}
 				});
 				//alert(filenames);
-				var urlss = dlinks.join('|');
-				var urls = urlss.replace(/d.pcs.baidu.com/g, 'pcs.baidu.com');
+				var urls = dlinks.join('|');
+				//var urls = urlss.replace(/d.pcs.baidu.com/g, 'pcs.baidu.com');
 				//alert(urls);
 					var dialog = ctx.ui.confirm({
 						title: 'Axeldown下载',
@@ -443,7 +455,7 @@
 					});
 					//alert(urls);
 					dialog.buttonIns[0].dom.attr({
-						'href': "javascript:var axelthread = document.getElementById('axelthread').value;window.axeldown('" + urls + "', '" + filenames + "', axelthread);",
+						'href': "javascript:var axelthread = document.getElementById('axelthread').value;window.axeldown('" + urls + "', '" + filenames + "', axelthread, '" + navigator.userAgent + "');",
 						'data-clipboard-action': 'copy',
 						'data-clipboard-target': '#bar'
 					}).addClass('btn').off();
@@ -470,10 +482,11 @@
 			$(unsafeWindow).on('load', function() {
 				reject('downloadManager.js');
 			});
-			require.async(prefix + 'download/service/downloadManager.js', function(dm) {
+			resolve();
+			/*require.async(prefix + 'download/service/downloadManager.js', function(dm) {
 				dm.MODE_PRE_INSTALL = dm.MODE_PRE_DOWNLOAD;
 				resolve();
-			});
+			});*/
 		});
 		var gjcPromise = new Promise(function(resolve, reject) {
 			$(unsafeWindow).on('load', function() {
@@ -492,7 +505,8 @@
 			$(unsafeWindow).on('load', function() {
 				reject('downloadDirectService.js');
 			});
-			require.async(prefix + 'download/service/downloadDirectService.js', function(dDS) {
+			resolve();
+			/*require.async(prefix + 'download/service/downloadDirectService.js', function(dDS) {
 				var $preDlFrame = null;
 				var _ = dDS.straightforwardDownload;
 				if (typeof _ !== 'function') return;
@@ -509,7 +523,7 @@
 					_.apply(dDS, arguments);
 				};
 				resolve();
-			});
+			});*/
 		});
 		Promise.all([dmPromise, gjcPromise, ddsPromise]).then(function() {
 			try {
